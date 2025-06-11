@@ -4,6 +4,7 @@ import sqlite3
 import re
 import asyncio
 import base64
+import csv
 
 
 class DataBase:
@@ -339,6 +340,7 @@ class DataInterfaces(DataBase):
         except Exception as e:
             print(f"Ошибка декодирования Base64: {e}")
             return None
+
     def _get_cash_cocktail_names_id(self):
         result = {}
         response: list[tuple] = self._get_all_cocktail_names()
@@ -361,6 +363,63 @@ class DataInterfaces(DataBase):
         [result.setdefault(item[0], item[-1]) for item in response]
 
         return result
+
+    def preparing_csv_file(self, text_io):
+        result = []
+        cocktails_dict = {}
+        reader = csv.DictReader(text_io, delimiter=';')
+        current_cocktail_name_en = ""
+        for row in reader:
+            if not isinstance(row, dict):
+                continue
+            cocktail_name_en = row.get("Название коктейля (en)", None)
+            if cocktail_name_en and cocktail_name_en != current_cocktail_name_en:
+                current_cocktail_name_en = cocktail_name_en
+
+                cocktails_dict[cocktail_name_en] = {}
+            for k, v in row.items():
+                cocktails_dict[current_cocktail_name_en].setdefault(k, [])
+                if v:
+                    cocktails_dict[current_cocktail_name_en][k].append(v)
+        # Приводим к стандартизированному виду
+        for item in cocktails_dict.values():
+            cocktail = []
+            for k, v in item.items():
+                d = {
+                    'param': k,
+                     'data': []
+                }
+                for v_item in v:
+                    couple = v_item.split('---')
+                    if len(couple) > 1:
+                        d['data'].append(
+                            {'value': couple[0], 'volume': couple[1]}
+                        )
+                    else:
+                        d['data'].append(
+                            {'value': v_item, 'volume': None}
+                        )
+                # if not d['data']:
+                #     d['data'].append({'value': None, 'volume': None})
+                cocktail.append(d)
+            result.append(cocktail)
+
+        text_io.detach()
+        return result
+
+
+    async def add_new_cocktail_to_database(self, cocktail_array, image_data=None):
+        for_cocktails_table = []
+
+
+
+
+
+
+
+
+
+
 
 
 class SearchController(DataInterfaces):
@@ -428,8 +487,27 @@ class SearchController(DataInterfaces):
         return result
 
 
+class DataBaseInput():
+    # def __init__(self, db_path):
+    #     super().__init__(db_path)
+    def csv_file_validator(self, file):
+        result = []
+        # with open(file, 'r', encoding='utf-8') as f:
+        #     reader = csv.DictReader(f, delimiter=';')
+        #     cocktail_items = []
+        #     flag = False
+        #     for row in reader:
+        #         for k, v in row.items():
+        #             print(k, v)
+
+
+
+
 search_controller = SearchController('cocktails_book.db')
 data_controller = DataInterfaces('cocktails_book.db')
+# asyncio.run(data_controller.get_cocktail_params(1))
 # import asyncio
 # asyncio.run(search_controller.get_cocktail_names_by_user_query("секс"))
-
+# test = DataBaseInput()
+# test.csv_file_validator('test.csv')
+# [{'param': 'Название коктейля (en)', 'data': [{'value': 'Alexander', 'volume': None}]}, {'param': 'Название коктейля (ru)', 'data': [{'value': 'Александр', 'volume': None}]}, {'param': 'Дополнительное название коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Крепость коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Общий объём коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Уровень сложности', 'data': [{'value': 'Средний', 'volume': None}]}, {'param': 'Принадлежность коктейля', 'data': [{'value': 'Классический IBA «Незабываемые»', 'volume': None}]}, {'param': 'Классификация по Учебнику Бармена', 'data': [{'value': 'Дуэты и Трио', 'volume': None}]}, {'param': 'Сезонность', 'data': [{'value': 'Всесезонный', 'volume': None}]}, {'param': 'Цвет коктейля', 'data': [{'value': 'Белый насыщенный непрозрачный', 'volume': None}]}, {'param': 'Характеристика вкуса, кислый', 'data': [{'value': 'Нет', 'volume': None}]}, {'param': 'Характеристика вкуса, сладкий', 'data': [{'value': 'Ясно ощущается', 'volume': None}]}, {'param': 'Характеристика вкуса, горький', 'data': [{'value': 'Лёгкий оттенок', 'volume': None}]}, {'param': 'Характеристика вкуса, солёный', 'data': [{'value': 'Нет', 'volume': None}]}, {'param': 'Описание вкуса и аромата', 'data': [{'value': 'Пряный аромат, так как при сервировке используем мускатный орех. Вкус сливочный, слегка шоколадный.', 'volume': None}]}]

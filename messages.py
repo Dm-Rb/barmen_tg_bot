@@ -1,7 +1,16 @@
 msg_search_result = "🔍 <b>Результаты поиска по вашему запросу:</b>"
 
+msg_add_data = 'Скачайте и заполните таблицу "template.csv" данными, затем отправьте таблицу боту для добавления данных в базу.\n' + \
+               'Ознакомтесь с примером валидного заполнения таблицы в файле "example.csv"'
 
-def msg_cocktail_params(data: list[dict]):
+
+msg_accept_add_data = '❕ Убедитесь в том, что все данные верны и расположены правильным образом.\n' + \
+                      '❕ Отправте боту изображение коктейля для сохранения данных базу.\n' + \
+                      '❕ Если вы заметили, что данные некорректны, отправьте боте команду /cancel для отмены.'
+
+msg_start_command = "<b>Помощник начинающего бармена.</b>\nОтправьте боту название коктейля (на англ.) либо входящий в коктейль ингридиент. Получите детальную информацию, состав и инструкцию приготовления"
+
+def msg_cocktail_params(data: list[dict], msg_type="Параметры коктейля"):
     cocktail_names = '🍸 <b>'
     text = ''
     for item in data:
@@ -19,14 +28,17 @@ def msg_cocktail_params(data: list[dict]):
                 if flag:
                     text += f"🔹 <b>{item['param']}:</b>\n"
                     flag = False
-                text += f"<i>⇨ {value['value']}</i>\n\n"
+                if value['volume']:
+                    text += f"<i>⇨ {value['value']}</i> --- {value['volume']}\n"
+                else:
+                    text += f"<i>⇨ {value['value']}</i>\n"
         #####
 
     cocktail_names = cocktail_names.rstrip(', ')
     cocktail_names += '</b>'
     cocktail_names += "\n\n"
 
-    return cocktail_names + "<b>❇️ Параметры коктейля</b>\n\n" + text
+    return cocktail_names + f"<b>❇️ {msg_type}</b>\n\n" + text
 
 
 def msg_cocktail_ingredients_cooking(data, cocktail_name, msg_type):
@@ -34,13 +46,17 @@ def msg_cocktail_ingredients_cooking(data, cocktail_name, msg_type):
     text = ''
 
     for item in data:
-        if item['data'][0]['value']:
-            text += f"🔹 <b>{item['param']}:</b>\n"
-        else:
-            continue
+        try:
+            if item['data'][0]['value']:
+                text += f"🔹 <b>{item['param']}:</b>\n"
+            else:
+                continue
+        except IndexError:
+            pass
 
         for value in item['data']:
             if value['value']:
+                value['value'] = value['value'].replace('\n', '\n⇨ ')
                 if value['volume']:
                     text += f"<i>⇨ {value['value']}</i> --- {value['volume']}\n"
                 else:
