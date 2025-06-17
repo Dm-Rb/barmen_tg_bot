@@ -23,12 +23,12 @@ async def handle_pagination(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(current_page=current_page)
 
-    # Генерируем новую клавиатуру
+    # генерируем клавиатуру
     keyboard = await build_keyboard_with_pagination(items, current_page)
 
-    # Редактируем сообщение (чтобы не создавать новое)
+    # редактируем сообщение (чтобы не создавать новое)
     await callback.message.edit_reply_markup(reply_markup=keyboard)
-    await callback.answer()  # Убираем "часики" в интерфейсе
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith('item_'))

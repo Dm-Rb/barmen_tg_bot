@@ -15,10 +15,11 @@ router = Router()
 
 
 class PaginationState(StatesGroup):
-    viewing_list = State()  # Состояние просмотра списка
+    viewing_list = State()
+
 
 class UploadFileState(StatesGroup):
-    process_uploading = State()  # Состояние просмотра списка
+    process_uploading = State()
 
 
 @router.message(Command("start"))
@@ -27,19 +28,20 @@ async def start(message: Message):
 
 
 @router.message(Command("add"))
-async def start(message: Message, bot: Bot):
+async def add_new(message: Message, bot: Bot):
     media = [
         InputMediaDocument(
-            media=FSInputFile(os.path.join('files', 'template.csv')),  # путь к первому файлу
-            caption="Шаблон с таблицей"  # опционально
+            media=FSInputFile(os.path.join('files', 'template.csv')),
+            caption="Шаблон с таблицей"
         ),
         InputMediaDocument(
-            media=FSInputFile(os.path.join('files', "example.csv")),  # путь ко второму файлу
-            caption="Пример заполнения"  # опционально
+            media=FSInputFile(os.path.join('files', "example.csv")),
+            caption="Пример заполнения"
         )
     ]
     await message.answer(text=msg_add_data)
     await bot.send_media_group(chat_id=message.chat.id, media=media)
+
 
 @router.message(Command("show_all"))
 async def start(message: Message, state: FSMContext):
@@ -59,6 +61,19 @@ async def start(message: Message, state: FSMContext):
             parse_mode="HTML",
             reply_markup=await build_keyboard_with_pagination(cocktails_array)  # Shows pagination
         )
+
+
+@router.message(StateFilter(UploadFileState.process_uploading), Command("cancel"))
+async def cancel(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    current_i = int(data.get('current_i', 0))
+    items = data.get('items', None)
+    if not items:
+        await state.clear()
+        return
+    # обновляем хранилище состояния
+    await state.update_data(current_i=current_i + 1, items=items)
+    await processing_new_cocktail(state, bot, message.chat.id)
 
 
 @router.message(F.text)
@@ -82,19 +97,19 @@ async def handle_user_message(message: Message, state: FSMContext):
 
 @router.message(F.document)
 async def handle_user_message(message: Message, bot: Bot, state: FSMContext):
-    # Проверяем, что это CSV (по имени файла или MIME-типу)
+    # проверяем, что это csv
     if not message.document.file_name or not message.document.file_name.endswith('.csv'):
         return  # пропускаем, если не CSV
 
-    # Скачиваем файл в память (передаём file_id, а не Document)
+    # скачиваем файл в память (передаём file_id, а не Document)
     file_in_memory = BytesIO()
     await bot.download(
-        message.document.file_id,  # Вот правильный аргумент!
+        message.document.file_id,
         destination=file_in_memory
     )
     file_in_memory.seek(0)  # переводим курсор в начало
 
-    # Читаем CSV через csv.DictReader
+    # читаем csv через csv.dictreader
     text_io = TextIOWrapper(file_in_memory, encoding='utf-8')
     try:
         new_cocktails_array = data_controller.preparing_csv_file(text_io)
@@ -107,36 +122,51 @@ async def handle_user_message(message: Message, bot: Bot, state: FSMContext):
 
 
 @router.message(StateFilter(UploadFileState.process_uploading), F.photo)
-async def save_new_cocktail(state: FSMContext, bot: Bot, message: Message):
+async def save_new_cocktail(message: Message, state: FSMContext, bot: Bot):
     photo = message.photo[-1]
     file_in_memory = BytesIO()
     await bot.download(photo.file_id, destination=file_in_memory)
-    file_in_memory.seek(0)  # Важно: переводим курсор в начало!
+    file_in_memory.seek(0)
     photo_data = file_in_memory.getvalue()
-
     data = await state.get_data()
     current_i = int(data.get('current_i', 0))
     items = data.get('items', None)
     if not items:
         await state.clear()
         return
-    if current_i >= len(items) - 1:
+    if current_i > len(items) - 1:
         await state.clear()
         return
     cocktail_data = items[current_i]
-    # Тут метод для сохранения в базу данных
+    # обновляем хранилище состояния
+    await state.update_data(current_i=current_i + 1, items=items)
+    try:
+        await data_controller.add_new_cocktail_to_database(cocktail_data, photo_data)
+        await bot.send_message(chat_id=message.chat.id, text='🟢 Данные сохранены', parse_mode='HTML')
+    except Exception as _ex:
+        await bot.send_message(chat_id=message.chat.id, text=f'🔴 Данные НЕ сохранены, ошибка: {_ex}', parse_mode='HTML')
+
+    await processing_new_cocktail(state, bot, message.chat.id)
+    if current_i == len(items) - 1:
+        await state.clear()
+        search_controller.update_caches()
+        return
+
 
 @router.message(StateFilter(UploadFileState.process_uploading))
 async def processing_new_cocktail(state: FSMContext, bot: Bot, chat_id):
     data = await state.get_data()
+
     current_i = int(data.get('current_i', 0))
     items = data.get('items', None)
+
     if not items:
         await bot.send_message(chat_id=chat_id, text='Список данных из таблицы пуст.')
         await state.clear()
         return
-    if current_i >= len(items) - 1:
+    if current_i > len(items) - 1:
         await state.clear()
+        search_controller.update_caches()
         return
     message = msg_cocktail_params(items[current_i], 'Вся информация')
     message += '\n\n' + msg_accept_add_data

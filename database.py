@@ -23,6 +23,149 @@ class DataBase:
         if self.connection:
             await self.connection.close()
 
+
+class DataBaseInput(DataBase):
+    def __init__(self, db_path):
+        super().__init__(db_path)
+
+    async def _insert_into_cocktails(self, data: dict):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            columns = ', '.join(data.keys())
+            placeholders = ', '.join(['?'] * len(data))
+            values = tuple(data.values())
+            sql = f"INSERT INTO cocktails ({columns}) VALUES ({placeholders})"
+            await cursor.execute(sql, values)
+            await conn.commit()
+
+            return cursor.lastrowid
+
+    async def _insert_into_drinkware(self, ware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            sql = "SELECT id FROM drinkware WHERE ware = ?"
+            await cursor.execute(sql, (ware,))
+
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            sql = "INSERT INTO drinkware (ware) VALUES(?)"
+            await cursor.execute(sql, (ware,))
+            await conn.commit()
+            return cursor.lastrowid
+
+    async def _insert_into_relations_cocktail_drinkware(self, id_cocktail, id_ware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO  relations_cocktail_drinkware (id_cocktail, id_ware) VALUES(?, ?)"
+            await cursor.execute(sql, (id_cocktail, id_ware, ))
+            await conn.commit()
+
+    async def _insert_into_preparation_methods(self, ware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            sql = "SELECT id FROM preparation_methods WHERE method = ?"
+            await cursor.execute(sql, (ware,))
+
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            sql = "INSERT INTO preparation_methods (method) VALUES(?)"
+            await cursor.execute(sql, (ware,))
+            await conn.commit()
+            return cursor.lastrowid
+
+    async def _insert_into_relations_cocktail_method(self, id_cocktail, id_ware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO relations_cocktail_method (id_cocktail, id_method) VALUES(?, ?)"
+            await cursor.execute(sql, (id_cocktail, id_ware, ))
+            await conn.commit()
+
+    async def _insert_into_necessary_inventory(self, inventory):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            sql = "SELECT id FROM necessary_inventory WHERE inventory = ?"
+            await cursor.execute(sql, (inventory,))
+
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            sql = "INSERT INTO necessary_inventory (inventory) VALUES(?)"
+            await cursor.execute(sql, (inventory,))
+            await conn.commit()
+            return cursor.lastrowid
+
+    async def _insert_into_relations_cocktail_inventory(self, id_cocktail, id_inventory):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO relations_cocktail_inventory (id_cocktail, id_inventory) VALUES(?, ?)"
+            await cursor.execute(sql, (id_cocktail, id_inventory, ))
+            await conn.commit()
+
+    async def _insert_into_bar_hardware(self, hardware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            sql = "SELECT id FROM bar_hardware WHERE hardware = ?"
+            await cursor.execute(sql, (hardware,))
+
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            sql = "INSERT INTO bar_hardware (hardware) VALUES(?)"
+            await cursor.execute(sql, (hardware,))
+            await conn.commit()
+            return cursor.lastrowid
+
+    async def _insert_into_relations_cocktail_hardware(self, id_cocktail, id_hardware):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO relations_cocktail_hardware (id_cocktail, id_hardware) VALUES(?, ?)"
+            await cursor.execute(sql, (id_cocktail, id_hardware, ))
+            await conn.commit()
+
+    async def _insert_into_ingredients(self, ingredient):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+            sql = "SELECT id FROM ingredients WHERE ingredient = ?"
+            await cursor.execute(sql, (ingredient,))
+
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            sql = "INSERT INTO ingredients (ingredient) VALUES(?)"
+            await cursor.execute(sql, (ingredient,))
+            await conn.commit()
+            return cursor.lastrowid
+
+    async def _insert_into_relations_cocktail_ingredient(self, id_cocktail, id_ingredient, value):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO relations_cocktail_ingredient (id_cocktail, id_ingredient, value) VALUES(?, ?, ?)"
+            await cursor.execute(sql, (id_cocktail, id_ingredient, value, ))
+            await conn.commit()
+
+    async def _insert_into_cocktail_imgs(self, id_cocktail, image_base64):
+        async with aiosqlite.connect(self.db_name) as conn:
+            cursor = await conn.cursor()
+
+            sql = "INSERT INTO cocktail_imgs (id_cocktail, img_base64) VALUES(?, ?)"
+            await cursor.execute(sql, (id_cocktail, image_base64, ))
+            await conn.commit()
+
+
+class DataBaseOutput(DataBase):
+
     def _get_all_cocktail_names(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -72,6 +215,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]  # конвертим Row в tuple
 
     async def _get_related_ingredients_from_cocktails_table_by_cocktail_id(self, cocktail_id: int) \
@@ -94,6 +238,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_ingredients_from_ingredients_table_by_cocktail_id(self, cocktail_id: int) \
@@ -108,6 +253,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_drinkware_from_drinkware_table_by_cocktail_id(self, cocktail_id: int) -> List[Tuple[str, ]]:
@@ -121,6 +267,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_instructions_from_cocktails_table_by_cocktail_id(self, cocktail_id: int) \
@@ -142,6 +289,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_methods_from_preparation_methods_table_by_cocktail_id(self, cocktail_id: int) \
@@ -156,6 +304,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_inventory_from_necessary_inventory_table_by_cocktail_id(self, cocktail_id: int) \
@@ -170,6 +319,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_hardware_from_bar_hardware_table_by_cocktail_id(self, cocktail_id: int) -> List[Tuple[str, ]]:
@@ -183,6 +333,7 @@ class DataBase:
             """
             await cursor.execute(sql, (cocktail_id,))
             response_data = await cursor.fetchall()
+
             return [tuple(row) for row in response_data]
 
     async def _get_related_cocktail_names_by_ingredient_id(self, ingredient_id: int) -> List[int]:
@@ -196,6 +347,7 @@ class DataBase:
             """
             await cursor.execute(sql, (ingredient_id,))
             response_data = await cursor.fetchall()
+
             return [row[0] for row in response_data]
 
     async def _get_related_img_base64_by_id_cocktail(self, id_cocktail: int):
@@ -210,7 +362,7 @@ class DataBase:
             return response_data
 
 
-class DataInterfaces(DataBase):
+class DataInterfaces(DataBaseOutput, DataBaseInput):
 
     def __init__(self, db_path: str = "data.db"):
         super().__init__(db_path)
@@ -364,7 +516,8 @@ class DataInterfaces(DataBase):
 
         return result
 
-    def preparing_csv_file(self, text_io):
+    @staticmethod
+    def preparing_csv_file(text_io):
         result = []
         cocktails_dict = {}
         reader = csv.DictReader(text_io, delimiter=';')
@@ -407,19 +560,87 @@ class DataInterfaces(DataBase):
         text_io.detach()
         return result
 
-
     async def add_new_cocktail_to_database(self, cocktail_array, image_data=None):
-        for_cocktails_table = []
+        alias_ = {}
+        for_cocktails_table = {}
+        for_drinkware_table = None
+        for_preparation_methods_table = None
+        for_necessary_inventory_table = None
+        for_bar_hardware_table = None
+        for_ingredients_table = None
 
+        for k, v in self._cocktails_alias.items():
+            alias_[v] = k
 
+        # filtering
+        for item in cocktail_array:
+            if alias_.get(item['param'], None):
+                for_cocktails_table[alias_[item['param']]] = None
+                if len(item['data']) > 0 and item['data'][0].get('value', None):
+                    for_cocktails_table[alias_[item['param']]] = item['data'][0]['value']
 
+            elif item['param'] == 'Посуда для подачи (наименования согласно учебнику бармена)':
+                if item['data']:
+                    for_drinkware_table = [i['value'] for i in item['data']]
 
+            elif item['param'] == 'Методы и приёмы приготовления':
+                if item['data']:
+                    for_preparation_methods_table = [i['value'] for i in item['data']]
 
+            elif item['param'] == 'Список необходимого инвентаря (наименования согласно учебнику бармена)':
+                if item['data']:
+                    for_necessary_inventory_table = [i['value'] for i in item['data']]
 
+            elif item['param'] == 'Список необходимого оборудования (наименования согласно учебнику бармена)':
+                if item['data']:
+                    for_bar_hardware_table = [i['value'] for i in item['data']]
 
+            elif item['param'] == 'Ингредиенты':
+                if item['data']:
+                    for_ingredients_table = item['data']
+            else:
+                continue
 
+        # write 2 database
+        cocktail_id = await self._insert_into_cocktails(for_cocktails_table)
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        await self._insert_into_cocktail_imgs(cocktail_id, image_base64)
+        if for_drinkware_table:
+            [
+                await self._insert_into_relations_cocktail_drinkware(cocktail_id, await self._insert_into_drinkware(i))
+                for i in for_drinkware_table if i
+            ]
 
+        if for_preparation_methods_table:
+            [
+                await self._insert_into_relations_cocktail_method(cocktail_id, await self._insert_into_preparation_methods(i))
+                for i in for_preparation_methods_table if i
+            ]
 
+        if for_necessary_inventory_table:
+            [
+                await self._insert_into_relations_cocktail_inventory(cocktail_id, await self._insert_into_necessary_inventory(i))
+                for i in for_necessary_inventory_table if i
+            ]
+        if for_bar_hardware_table:
+            [
+                await self._insert_into_relations_cocktail_hardware(cocktail_id, await self._insert_into_bar_hardware(i))
+                for i in for_bar_hardware_table if i
+            ]
+
+        if for_ingredients_table:
+            for d in for_ingredients_table:
+                ingredient_id = await self._insert_into_ingredients(d['value'])
+                ingredient_value = d['volume']
+                await self._insert_into_relations_cocktail_ingredient(cocktail_id, ingredient_id, ingredient_value)
+
+        # Reinitialization
+        # {en_cocktail_name: id, ru_cocktail_name: id, additional_name: id, ...}
+        SearchController.cash_cocktail_names = self._get_cash_cocktail_names_id()
+        # {id: en_cocktail_name, id: en_cocktail_name, ...}
+        SearchController.cash_display_cocktail_names = self._get_cash_id_en_cocktail_names()
+        # {ingredient: id, ingredient: id, ...}
+        SearchController.cash_ingredients = self._get_cash_ingredients()
 
 
 class SearchController(DataInterfaces):
@@ -486,28 +707,12 @@ class SearchController(DataInterfaces):
                             result.append(item)
         return result
 
-
-class DataBaseInput():
-    # def __init__(self, db_path):
-    #     super().__init__(db_path)
-    def csv_file_validator(self, file):
-        result = []
-        # with open(file, 'r', encoding='utf-8') as f:
-        #     reader = csv.DictReader(f, delimiter=';')
-        #     cocktail_items = []
-        #     flag = False
-        #     for row in reader:
-        #         for k, v in row.items():
-        #             print(k, v)
-
-
+    def update_caches(self):
+        """Обновляет кеши текущего экземпляра."""
+        self.cash_cocktail_names = self._get_cash_cocktail_names_id()
+        self.cash_display_cocktail_names = self._get_cash_id_en_cocktail_names()
+        self.cash_ingredients = self._get_cash_ingredients()
 
 
 search_controller = SearchController('cocktails_book.db')
 data_controller = DataInterfaces('cocktails_book.db')
-# asyncio.run(data_controller.get_cocktail_params(1))
-# import asyncio
-# asyncio.run(search_controller.get_cocktail_names_by_user_query("секс"))
-# test = DataBaseInput()
-# test.csv_file_validator('test.csv')
-# [{'param': 'Название коктейля (en)', 'data': [{'value': 'Alexander', 'volume': None}]}, {'param': 'Название коктейля (ru)', 'data': [{'value': 'Александр', 'volume': None}]}, {'param': 'Дополнительное название коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Крепость коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Общий объём коктейля', 'data': [{'value': None, 'volume': None}]}, {'param': 'Уровень сложности', 'data': [{'value': 'Средний', 'volume': None}]}, {'param': 'Принадлежность коктейля', 'data': [{'value': 'Классический IBA «Незабываемые»', 'volume': None}]}, {'param': 'Классификация по Учебнику Бармена', 'data': [{'value': 'Дуэты и Трио', 'volume': None}]}, {'param': 'Сезонность', 'data': [{'value': 'Всесезонный', 'volume': None}]}, {'param': 'Цвет коктейля', 'data': [{'value': 'Белый насыщенный непрозрачный', 'volume': None}]}, {'param': 'Характеристика вкуса, кислый', 'data': [{'value': 'Нет', 'volume': None}]}, {'param': 'Характеристика вкуса, сладкий', 'data': [{'value': 'Ясно ощущается', 'volume': None}]}, {'param': 'Характеристика вкуса, горький', 'data': [{'value': 'Лёгкий оттенок', 'volume': None}]}, {'param': 'Характеристика вкуса, солёный', 'data': [{'value': 'Нет', 'volume': None}]}, {'param': 'Описание вкуса и аромата', 'data': [{'value': 'Пряный аромат, так как при сервировке используем мускатный орех. Вкус сливочный, слегка шоколадный.', 'volume': None}]}]
